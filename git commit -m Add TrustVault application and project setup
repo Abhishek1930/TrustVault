@@ -1,0 +1,1083 @@
+[1mdiff --git a/.env.example b/.env.example[m
+[1mnew file mode 100644[m
+[1mindex 0000000..76bc0d4[m
+[1m--- /dev/null[m
+[1m+++ b/.env.example[m
+[36m@@ -0,0 +1,10 @@[m
+[32m+[m[32m# Generate a secret with: python -c "import secrets; print(secrets.token_hex(32))"[m
+[32m+[m[32mSECRET_KEY=replace-with-a-long-random-secret[m
+[32m+[m[32m# Local default is SQLite. For deployment, set DATABASE_URL to a PostgreSQL URL.[m
+[32m+[m[32m# DATABASE_URL=postgresql+psycopg://user:password@host:5432/trustvault[m
+[32m+[m[32m# Set these only to bootstrap the first admin account. Remove them after setup if appropriate.[m
+[32m+[m[32m# ADMIN_EMAIL=admin@example.com[m
+[32m+[m[32m# ADMIN_PASSWORD=replace-with-a-unique-password-at-least-12-chars[m
+[32m+[m[32m# UPLOAD_FOLDER=/absolute/path/to/private_uploads[m
+[32m+[m[32m# COOKIE_SECURE=true[m
+[32m+[m[32m# FLASK_DEBUG=false[m
+[1mdiff --git a/.gitignore b/.gitignore[m
+[1mnew file mode 100644[m
+[1mindex 0000000..68f3914[m
+[1m--- /dev/null[m
+[1m+++ b/.gitignore[m
+[36m@@ -0,0 +1,9 @@[m
+[32m+[m[32m.env[m
+[32m+[m[32m.venv/[m
+[32m+[m[32m__pycache__/[m
+[32m+[m[32m*.py[cod][m
+[32m+[m[32m.pytest_cache/[m
+[32m+[m[32minstance/[m
+[32m+[m[32m*.db[m
+[32m+[m[32mprivate_uploads/[m
+[32m+[m[32m.coverage[m
+[1mdiff --git a/.python-version b/.python-version[m
+[1mnew file mode 100644[m
+[1mindex 0000000..2c07333[m
+[1m--- /dev/null[m
+[1m+++ b/.python-version[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32m3.11[m
+[1mdiff --git a/API.md b/API.md[m
+[1mnew file mode 100644[m
+[1mindex 0000000..e69de29[m
+[1mdiff --git a/DEMO_SCRIPT.md b/DEMO_SCRIPT.md[m
+[1mnew file mode 100644[m
+[1mindex 0000000..25d53c5[m
+[1m--- /dev/null[m
+[1m+++ b/DEMO_SCRIPT.md[m
+[36m@@ -0,0 +1,11 @@[m
+[32m+[m[32m# Five-minute demo outline[m
+[32m+[m
+[32m+[m[32m1. **0:00–0:30 — Problem and roles.** Introduce TrustVault and explain that UI hiding is not authorization.[m
+[32m+[m[32m2. **0:30–1:15 — Owner workflow.** Sign in as an owner, upload a harmless sample PDF/TXT, and show the document listing and search filters.[m
+[32m+[m[32m3. **1:15–2:00 — Share.** Grant a second account read permission; sign in as that user and download the file.[m
+[32m+[m[32m4. **2:00–2:45 — Attack and revoke.** Attempt a direct download as an unrelated user and show it is denied. Revoke the grantee, repeat the same URL and show it is denied.[m
+[32m+[m[32m5. **2:45–3:30 — Edit boundary.** Show read-only users cannot change metadata, while an edit grantee can.[m
+[32m+[m[32m6. **3:30–4:15 — Audit.** Show successful and denied events, permission changes, and the audit chain verification status.[m
+[32m+[m[32m7. **4:15–5:00 — Honest limitations.** Explain external anchoring, malware scanning, MFA, backups and immutable storage as unfinished work.[m
+[32m+[m
+[32m+[m[32mUse only non-sensitive demo files and demo accounts. Do not show secrets or real customer documents.[m
+[1mdiff --git a/PROMPTS.md b/PROMPTS.md[m
+[1mnew file mode 100644[m
+[1mindex 0000000..e69de29[m
+[1mdiff --git a/Procfile b/Procfile[m
+[1mnew file mode 100644[m
+[1mindex 0000000..ca6e941[m
+[1m--- /dev/null[m
+[1m+++ b/Procfile[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32mweb: gunicorn app:app[m
+[1mdiff --git a/README.md b/README.md[m
+[1mnew file mode 100644[m
+[1mindex 0000000..0b456db[m
+[1m--- /dev/null[m
+[1m+++ b/README.md[m
+[36m@@ -0,0 +1,95 @@[m
+[32m+[m[32m# TrustVault — Secure Document Sharing[m
+[32m+[m
+[32m+[m[32mTrustVault is a Flask prototype for document-level access control and an auditable document activity trail. It demonstrates login, role restrictions, private file storage, read/edit grants, revocation, search, and hash-linked audit events. It is a hackathon starter, not a production-certified security product.[m
+[32m+[m
+[32m+[m[32m## Features[m
+[32m+[m
+[32m+[m[32m- Roles: `admin`, `owner`, `viewer`. Public registration always creates a `viewer`. An admin can promote users.[m
+[32m+[m[32m- Upload: owners and admins can upload PDF, TXT, DOCX, XLSX, PNG, JPG/JPEG files up to 10 MB.[m
+[32m+[m[32m- Private storage: files are stored under `instance/private_uploads` by default, outside the static web directory.[m
+[32m+[m[32m- Document grants: owner can grant named active users `read` or `edit`; revocation is checked against the database on every request.[m
+[32m+[m[32m- Search: document name, owner email, category, start date and end date. Results are limited to documents owned by or granted to the signed-in user.[m
+[32m+[m[32m- Audit: successful and denied access attempts, uploads, downloads, edits, deletion, permission changes, role changes and authentication events.[m
+[32m+[m[32m- Admin page: recent audit activity, user list, role changes, and audit-chain verification. Admin role alone does not grant access to file contents.[m
+[32m+[m[32m- CSRF protection, password hashing, upload allowlist, size limit and baseline security headers.[m
+[32m+[m
+[32m+[m[32m## Requirements[m
+[32m+[m
+[32m+[m[32m- Python 3.11+ recommended[m
+[32m+[m[32m- Git (for repository history)[m
+[32m+[m
+[32m+[m[32m## Run locally on Windows[m
+[32m+[m
+[32m+[m[32m1. Extract the ZIP and open a terminal in the `TrustVault` folder.[m
+[32m+[m[32m2. Create a virtual environment:[m
+[32m+[m
+[32m+[m[32m   ```bat[m
+[32m+[m[32m   py -m venv .venv[m
+[32m+[m[32m   .venv\Scripts\activate[m
+[32m+[m[32m   ```[m
+[32m+[m
+[32m+[m[32m3. Install dependencies:[m
+[32m+[m
+[32m+[m[32m   ```bat[m
+[32m+[m[32m   python -m pip install --upgrade pip[m
+[32m+[m[32m   pip install -r requirements.txt[m
+[32m+[m[32m   ```[m
+[32m+[m
+[32m+[m[32m4. Create the local environment file and set a secret:[m
+[32m+[m
+[32m+[m[32m   ```bat[m
+[32m+[m[32m   copy .env.example .env[m
+[32m+[m[32m   python -c "import secrets; print(secrets.token_hex(32))"[m
+[32m+[m[32m   ```[m
+[32m+[m
+[32m+[m[32m   Copy the generated value into `.env` as `SECRET_KEY=...`. Never commit `.env`.[m
+[32m+[m
+[32m+[m[32m5. Run the application:[m
+[32m+[m
+[32m+[m[32m   ```bat[m
+[32m+[m[32m   python app.py[m
+[32m+[m[32m   ```[m
+[32m+[m
+[32m+[m[32m6. Open http://127.0.0.1:5000. Register a user. New users are viewers. To upload, an administrator must promote the account to `owner`.[m
+[32m+[m
+[32m+[m[32m## Bootstrap an administrator[m
+[32m+[m
+[32m+[m[32mBefore the first run, you can set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env`. If that email does not already exist, the app creates the first admin account. Use a unique password of at least 12 characters. Do not publish real credentials. Remove the bootstrap variables after setup and keep the password secret. For a hackathon deployment, provide demo credentials to judges through the intended submission channel, not by committing production secrets to the repository.[m
+[32m+[m
+[32m+[m[32m## Tests[m
+[32m+[m
+[32m+[m[32m```bat[m
+[32m+[m[32mpytest -q[m
+[32m+[m[32m```[m
+[32m+[m
+[32m+[m[32mThe tests use a temporary SQLite database and temporary private upload directory. Add a test for every security claim and every new route.[m
+[32m+[m
+[32m+[m[32m## Environment variables[m
+[32m+[m
+[32m+[m[32m| Variable | Purpose |[m
+[32m+[m[32m|---|---|[m
+[32m+[m[32m| `SECRET_KEY` | Flask session and CSRF secret; must be strong and private |[m
+[32m+[m[32m| `DATABASE_URL` | Database URL; defaults to local SQLite |[m
+[32m+[m[32m| `UPLOAD_FOLDER` | Private file storage directory |[m
+[32m+[m[32m| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Optional first-admin bootstrap |[m
+[32m+[m[32m| `COOKIE_SECURE` | Set `true` behind HTTPS in production |[m
+[32m+[m[32m| `FLASK_DEBUG` | Development debug switch; keep false in production |[m
+[32m+[m
+[32m+[m[32m## Deployment notes[m
+[32m+[m
+[32m+[m[32m- Use managed PostgreSQL and set `DATABASE_URL` to a supported PostgreSQL URL. `psycopg` is included.[m
+[32m+[m[32m- Set `SECRET_KEY` in the host's secret manager, not in source control. Set `COOKIE_SECURE=true` when HTTPS is correctly configured.[m
+[32m+[m[32m- Configure persistent private storage or private object storage. The local filesystem may be ephemeral on some hosts. Never put uploads in `static/`.[m
+[32m+[m[32m- Use a production WSGI server (`gunicorn app:app` on Linux; `Procfile` included). Do not run Flask debug mode in production.[m
+[32m+[m[32m- Add database migrations, backups, storage ACLs, monitoring, rate limiting, MFA/SSO, malware scanning and external audit anchoring before handling real confidential files.[m
+[32m+[m[32m- Test revocation, cross-user access and all routes against the deployed environment.[m
+[32m+[m
+[32m+[m[32m## Documentation[m
+[32m+[m
+[32m+[m[32m- [`API.md`](API.md): route permissions and behavior.[m
+[32m+[m[32m- [`THREATS.md`](THREATS.md): threat register and known limitations.[m
+[32m+[m[32m- [`PROMPTS.md`](PROMPTS.md): AI usage log template; replace planning placeholders with real dated evidence as you work.[m
+[32m+[m
+[32m+[m[32m## Important limitations[m
+[32m+[m
+[32m+[m[32mThis prototype has not been independently security audited. The audit hash chain detects modifications relative to a trusted checkpoint but can be rebuilt by an attacker with full database write access. The allowlist does not inspect true file content. Previously downloaded files cannot be revoked. Do not use this as-is for real confidential documents.[m
+[1mdiff --git a/THREATS.md b/THREATS.md[m
+[1mnew file mode 100644[m
+[1mindex 0000000..e69de29[m
+[1mdiff --git a/WRITEUP.md b/WRITEUP.md[m
+[1mnew file mode 100644[m
+[1mindex 0000000..064529f[m
+[1m--- /dev/null[m
+[1m+++ b/WRITEUP.md[m
+[36m@@ -0,0 +1,21 @@[m
+[32m+[m[32m# TrustVault — short project write-up[m
+[32m+[m
+[32m+[m[32m## What is built[m
+[32m+[m
+[32m+[m[32mTrustVault is a Flask document-sharing prototype with role-aware account management, private local file storage, document-level read/edit grants, revocation, metadata search, soft deletion, and a hash-linked audit event trail. It records successful and denied document access attempts and offers an administrative activity view.[m
+[32m+[m
+[32m+[m[32m## Permission model[m
+[32m+[m
+[32m+[m[32mA document owner can read, edit metadata, delete (soft delete), grant and revoke access to their own document. A named user with a `read` grant can download but cannot edit. A named user with an `edit` grant can download and edit metadata. Public registration always creates a viewer; an administrator can promote an account to owner/admin. Admin role is not a blanket bypass for file content. Every download rechecks the current database permission, so revocation blocks subsequent requests. Copies already downloaded cannot be recalled.[m
+[32m+[m
+[32m+[m[32m## AI use[m
+[32m+[m
+[32m+[m[32mRecord the real prompts, output, errors found, corrections and commit hashes in `PROMPTS.md` as development proceeds. The current file contains planned examples and must be updated with genuine evidence before submission.[m
+[32m+[m
+[32m+[m[32m## Deliberate omissions[m
+[32m+[m
+[32m+[m[32mExternal guest links, expiring signed URLs, malware scanning, MFA/SSO, password reset, rate limiting, version history, recovery UI, independent immutable audit storage, external hash anchoring, full migration workflow and production backup/restore are not complete. The audit chain is tamper-evident only relative to a trusted checkpoint; a database administrator with full write access can rewrite the chain.[m
+[32m+[m
+[32m+[m[32m## Before submission[m
+[32m+[m
+[32m+[m[32mRun the full test suite, inspect the deployed app, verify every route, configure production secrets and private persistent storage, add migration and backup procedures, update `PROMPTS.md` with actual evidence, and publish a five-minute demo video. Do not claim production readiness without independent security review.[m
+[1mdiff --git a/app.py b/app.py[m
+[1mnew file mode 100644[m
+[1mindex 0000000..d26a791[m
+[1m--- /dev/null[m
+[1m+++ b/app.py[m
+[36m@@ -0,0 +1,488 @@[m
+[32m+[m[32mimport hashlib[m
+[32m+[m[32mimport json[m
+[32m+[m[32mimport os[m
+[32m+[m[32mimport secrets[m
+[32m+[m[32mfrom datetime import datetime, timezone[m
+[32m+[m[32mfrom pathlib import Path[m
+[32m+[m[32mfrom uuid import uuid4[m
+[32m+[m
+[32m+[m[32mfrom dotenv import load_dotenv[m
+[32m+[m[32mfrom flask import Flask, abort, flash, redirect, render_template, request, send_file, url_for[m
+[32m+[m[32mfrom flask_login import LoginManager, UserMixin, current_user, login_required, login_user, logout_user[m
+[32m+[m[32mfrom flask_sqlalchemy import SQLAlchemy[m
+[32m+[m[32mfrom flask_wtf import CSRFProtect[m
+[32m+[m[32mfrom sqlalchemy import or_[m
+[32m+[m[32mfrom werkzeug.security import check_password_hash, generate_password_hash[m
+[32m+[m[32mfrom werkzeug.utils import secure_filename[m
+[32m+[m
+[32m+[m[32mload_dotenv()[m
+[32m+[m[32mdb = SQLAlchemy()[m
+[32m+[m[32mlogin_manager = LoginManager()[m
+[32m+[m[32mcsrf = CSRFProtect()[m
+[32m+[m[32mlogin_manager.login_view = "login"[m
+[32m+[m[32mALLOWED_EXTENSIONS = {"pdf", "txt", "docx", "xlsx", "png", "jpg", "jpeg"}[m
+[32m+[m[32mMAX_BYTES = 10 * 1024 * 1024[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdef utcnow():[m
+[32m+[m[32m    return datetime.now(timezone.utc)[m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass User(UserMixin, db.Model):[m
+[32m+[m[32m    id = db.Column(db.Integer, primary_key=True)[m
+[32m+[m[32m    email = db.Column(db.String(254), unique=True, nullable=False, index=True)[m
+[32m+[m[32m    password_hash = db.Column(db.String(256), nullable=False)[m
+[32m+[m[32m    role = db.Column(db.String(20), nullable=False, default="viewer", index=True)[m
+[32m+[m[32m    active = db.Column(db.Boolean, nullable=False, default=True)[m
+[32m+[m[32m    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)[m
+[32m+[m
+[32m+[m[32m    def set_password(self, password):[m
+[32m+[m[32m        self.password_hash = generate_password_hash(password)[m
+[32m+[m
+[32m+[m[32m    def check_password(self, password):[m
+[32m+[m[32m        return check_password_hash(self.password_hash, password)[m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass Document(db.Model):[m
+[32m+[m[32m    id = db.Column(db.Integer, primary_key=True)[m
+[32m+[m[32m    name = db.Column(db.String(255), nullable=False)[m
+[32m+[m[32m    category = db.Column(db.String(80), nullable=False, default="General")[m
+[32m+[m[32m    owner_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)[m
+[32m+[m[32m    storage_name = db.Column(db.String(80), nullable=False, unique=True)[m
+[32m+[m[32m    original_name = db.Column(db.String(255), nullable=False)[m
+[32m+[m[32m    mime_type = db.Column(db.String(120), nullable=False, default="application/octet-stream")[m
+[32m+[m[32m    size_bytes = db.Column(db.Integer, nullable=False)[m
+[32m+[m[32m    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow, index=True)[m
+[32m+[m[32m    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)[m
+[32m+[m[32m    deleted_at = db.Column(db.DateTime(timezone=True), nullable=True, index=True)[m
+[32m+[m[32m    owner = db.relationship("User", foreign_keys=[owner_id])[m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass Permission(db.Model):[m
+[32m+[m[32m    id = db.Column(db.Integer, primary_key=True)[m
+[32m+[m[32m    document_id = db.Column(db.Integer, db.ForeignKey("document.id"), nullable=False, index=True)[m
+[32m+[m[32m    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)[m
+[32m+[m[32m    level = db.Column(db.String(10), nullable=False)  # read or edit[m
+[32m+[m[32m    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)[m
+[32m+[m[32m    granted_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)[m
+[32m+[m[32m    document = db.relationship("Document")[m
+[32m+[m[32m    user = db.relationship("User", foreign_keys=[user_id])[m
+[32m+[m[32m    granted_by = db.relationship("User", foreign_keys=[granted_by_id])[m
+[32m+[m[32m    __table_args__ = (db.UniqueConstraint("document_id", "user_id", name="uq_document_user_grant"),)[m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass AuditEvent(db.Model):[m
+[32m+[m[32m    id = db.Column(db.Integer, primary_key=True)[m
+[32m+[m[32m    occurred_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow, index=True)[m
+[32m+[m[32m    actor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True, index=True)[m
+[32m+[m[32m    actor_email = db.Column(db.String(254), nullable=False, default="anonymous")[m
+[32m+[m[32m    action = db.Column(db.String(60), nullable=False, index=True)[m
+[32m+[m[32m    document_id = db.Column(db.Integer, nullable=True, index=True)[m
+[32m+[m[32m    target_user_id = db.Column(db.Integer, nullable=True)[m
+[32m+[m[32m    outcome = db.Column(db.String(20), nullable=False)[m
+[32m+[m[32m    details = db.Column(db.Text, nullable=False, default="{}")[m
+[32m+[m[32m    previous_hash = db.Column(db.String(64), nullable=False)[m
+[32m+[m[32m    event_hash = db.Column(db.String(64), nullable=False, unique=True)[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdef record_event(action, outcome="success", document_id=None, target_user_id=None, details=None, actor=None):[m
+[32m+[m[32m    """Append a hash-linked audit event. External anchoring is needed for strong tamper evidence."""[m
+[32m+[m[32m    actor = actor if actor is not None else (current_user if current_user.is_authenticated else None)[m
+[32m+[m[32m    previous = db.session.query(AuditEvent).order_by(AuditEvent.id.desc()).first()[m
+[32m+[m[32m    previous_hash = previous.event_hash if previous else "0" * 64[m
+[32m+[m[32m    event_time = utcnow()[m
+[32m+[m[32m    payload = {[m
+[32m+[m[32m        "occurred_at": event_time.isoformat(),[m
+[32m+[m[32m        "actor_id": actor.id if actor else None,[m
+[32m+[m[32m        "actor_email": actor.email if actor else "anonymous",[m
+[32m+[m[32m        "action": action,[m
+[32m+[m[32m        "document_id": document_id,[m
+[32m+[m[32m        "target_user_id": target_user_id,[m
+[32m+[m[32m        "outcome": outcome,[m
+[32m+[m[32m        "details": details or {},[m
+[32m+[m[32m        "previous_hash": previous_hash,[m
+[32m+[m[32m    }[m
+[32m+[m[32m    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))[m
+[32m+[m[32m    event_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[m
+[32m+[m[32m    event = AuditEvent([m
+[32m+[m[32m        occurred_at=event_time, actor_id=payload["actor_id"], actor_email=payload["actor_email"], action=action,[m
+[32m+[m[32m        document_id=document_id, target_user_id=target_user_id, outcome=outcome,[m
+[32m+[m[32m        details=json.dumps(details or {}, sort_keys=True), previous_hash=previous_hash, event_hash=event_hash,[m
+[32m+[m[32m    )[m
+[32m+[m[32m    db.session.add(event)[m
+[32m+[m[32m    db.session.flush()[m
+[32m+[m[32m    return event[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdef verify_audit_chain():[m
+[32m+[m[32m    previous_hash = "0" * 64[m
+[32m+[m[32m    for event in AuditEvent.query.order_by(AuditEvent.id.asc()).all():[m
+[32m+[m[32m        event_time = event.occurred_at[m
+[32m+[m[32m        if event_time.tzinfo is None:[m
+[32m+[m[32m            event_time = event_time.replace(tzinfo=timezone.utc)[m
+[32m+[m[32m        payload = {[m
+[32m+[m[32m            "occurred_at": event_time.isoformat(),[m
+[32m+[m[32m            "actor_id": event.actor_id,[m
+[32m+[m[32m            "actor_email": event.actor_email,[m
+[32m+[m[32m            "action": event.action,[m
+[32m+[m[32m            "document_id": event.document_id,[m
+[32m+[m[32m            "target_user_id": event.target_user_id,[m
+[32m+[m[32m            "outcome": event.outcome,[m
+[32m+[m[32m            "details": json.loads(event.details or "{}"),[m
+[32m+[m[32m            "previous_hash": previous_hash,[m
+[32m+[m[32m        }[m
+[32m+[m[32m        # Hash uses a stored timestamp, so normalize event payload to the original audit representation.[m
+[32m+[m[32m        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))[m
+[32m+[m[32m        expected = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[m
+[32m+[m[32m        if event.previous_hash != previous_hash or event.event_hash != expected:[m
+[32m+[m[32m            return False[m
+[32m+[m[32m        previous_hash = event.event_hash[m
+[32m+[m[32m    return True[m
+[32m+[m
+[32m+[m
+[32m+[m[32m@login_manager.user_loader[m
+[32m+[m[32mdef load_user(user_id):[m
+[32m+[m[32m    user = db.session.get(User, int(user_id))[m
+[32m+[m[32m    return user if user and user.active else None[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdef create_app(test_config=None):[m
+[32m+[m[32m    app = Flask(__name__)[m
+[32m+[m[32m    app.config.update([m
+[32m+[m[32m        SECRET_KEY=os.environ.get("SECRET_KEY", "dev-only-change-this-secret"),[m
+[32m+[m[32m        SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL", "sqlite:///trustvault.db"),[m
+[32m+[m[32m        SQLALCHEMY_TRACK_MODIFICATIONS=False,[m
+[32m+[m[32m        SESSION_COOKIE_HTTPONLY=True,[m
+[32m+[m[32m        SESSION_COOKIE_SAMESITE="Lax",[m
+[32m+[m[32m        SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "false").lower() == "true",[m
+[32m+[m[32m        REMEMBER_COOKIE_HTTPONLY=True,[m
+[32m+[m[32m        MAX_CONTENT_LENGTH=MAX_BYTES,[m
+[32m+[m[32m        UPLOAD_FOLDER=os.environ.get("UPLOAD_FOLDER", str(Path(app.instance_path) / "private_uploads")),[m
+[32m+[m[32m    )[m
+[32m+[m[32m    if test_config:[m
+[32m+[m[32m        app.config.update(test_config)[m
+[32m+[m[32m    if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgres://"):[m
+[32m+[m[32m        app.config["SQLALCHEMY_DATABASE_URI"] = app.config["SQLALCHEMY_DATABASE_URI"].replace("postgres://", "postgresql://", 1)[m
+[32m+[m[32m    Path(app.config["UPLOAD_FOLDER"]).mkdir(parents=True, exist_ok=True)[m
+[32m+[m[32m    db.init_app(app)[m
+[32m+[m[32m    login_manager.init_app(app)[m
+[32m+[m[32m    csrf.init_app(app)[m
+[32m+[m
+[32m+[m[32m    with app.app_context():[m
+[32m+[m[32m        db.create_all()[m
+[32m+[m[32m        # Optional first-admin bootstrap. Set both values before first startup; do not use public registration for this.[m
+[32m+[m[32m        admin_email = os.environ.get("ADMIN_EMAIL", "").strip().lower()[m
+[32m+[m[32m        admin_password = os.environ.get("ADMIN_PASSWORD", "")[m
+[32m+[m[32m        if admin_email and admin_password and not User.query.filter_by(email=admin_email).first():[m
+[32m+[m[32m            admin = User(email=admin_email, role="admin")[m
+[32m+[m[32m            admin.set_password(admin_password)[m
+[32m+[m[32m            db.session.add(admin)[m
+[32m+[m[32m            db.session.commit()[m
+[32m+[m
+[32m+[m[32m    def allowed_file(filename):[m
+[32m+[m[32m        return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS[m
+[32m+[m
+[32m+[m[32m    def can_read(user, document):[m
+[32m+[m[32m        if not user.is_authenticated or not user.active or document.deleted_at is not None:[m
+[32m+[m[32m            return False[m
+[32m+[m[32m        if document.owner_id == user.id:[m
+[32m+[m[32m            return True[m
+[32m+[m[32m        grant = Permission.query.filter_by(document_id=document.id, user_id=user.id).first()[m
+[32m+[m[32m        return bool(grant and grant.level in {"read", "edit"})[m
+[32m+[m
+[32m+[m[32m    def can_edit(user, document):[m
+[32m+[m[32m        if not user.is_authenticated or not user.active or document.deleted_at is not None:[m
+[32m+[m[32m            return False[m
+[32m+[m[32m        if document.owner_id == user.id:[m
+[32m+[m[32m            return True[m
+[32m+[m[32m        grant = Permission.query.filter_by(document_id=document.id, user_id=user.id).first()[m
+[32m+[m[32m        return bool(grant and grant.level == "edit")[m
+[32m+[m
+[32m+[m[32m    def get_authorized_document(document_id, action="read"):[m
+[32m+[m[32m        document = db.session.get(Document, document_id)[m
+[32m+[m[32m        allowed = bool(document and (can_edit(current_user, document) if action == "edit" else can_read(current_user, document)))[m
+[32m+[m[32m        if not allowed:[m
+[32m+[m[32m            record_event("document_access", "denied", document_id=document_id, details={"requested_action": action})[m
+[32m+[m[32m            db.session.commit()[m
+[32m+[m[32m            abort(404)[m
+[32m+[m[32m        return document[m
+[32m+[m
+[32m+[m[32m    @app.after_request[m
+[32m+[m[32m    def security_headers(response):[m
+[32m+[m[32m        response.headers.setdefault("X-Content-Type-Options", "nosniff")[m
+[32m+[m[32m        response.headers.setdefault("X-Frame-Options", "DENY")[m
+[32m+[m[32m        response.headers.setdefault("Referrer-Policy", "no-referrer")[m
+[32m+[m[32m        response.headers.setdefault("Cache-Control", "no-store")[m
+[32m+[m[32m        response.headers.setdefault("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'")[m
+[32m+[m[32m        return response[m
+[32m+[m
+[32m+[m[32m    @app.route("/")[m
+[32m+[m[32m    def index():[m
+[32m+[m[32m        return redirect(url_for("dashboard" if current_user.is_authenticated else "login"))[m
+[32m+[m
+[32m+[m[32m    @app.route("/register", methods=["GET", "POST"])[m
+[32m+[m[32m    def register():[m
+[32m+[m[32m        if current_user.is_authenticated:[m
+[32m+[m[32m            return redirect(url_for("dashboard"))[m
+[32m+[m[32m        if request.method == "POST":[m
+[32m+[m[32m            email = request.form.get("email", "").strip().lower()[m
+[32m+[m[32m            password = request.form.get("password", "")[m
+[32m+[m[32m            if not email or "@" not in email or len(email) > 254:[m
+[32m+[m[32m                flash("Enter a valid email address.", "error")[m
+[32m+[m[32m            elif len(password) < 12:[m
+[32m+[m[32m                flash("Password must contain at least 12 characters.", "error")[m
+[32m+[m[32m            elif User.query.filter_by(email=email).first():[m
+[32m+[m[32m                flash("An account with that email already exists.", "error")[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                user = User(email=email, role="viewer")[m
+[32m+[m[32m                user.set_password(password)[m
+[32m+[m[32m                db.session.add(user)[m
+[32m+[m[32m                record_event("user_registered", details={"new_role": "viewer"}, actor=None)[m
+[32m+[m[32m                # Registration actor is the new user for the audit event.[m
+[32m+[m[32m                db.session.flush()[m
+[32m+[m[32m                event = AuditEvent.query.order_by(AuditEvent.id.desc()).first()[m
+[32m+[m[32m                # Do not rewrite audit records; a follow-up event captures registration identity after account creation.[m
+[32m+[m[32m                record_event("registration_completed", details={"user_id": user.id}, actor=user)[m
+[32m+[m[32m                db.session.commit()[m
+[32m+[m[32m                flash("Account created. Ask an administrator to promote you to document owner if needed.", "success")[m
+[32m+[m[32m                return redirect(url_for("login"))[m
+[32m+[m[32m        return render_template("register.html")[m
+[32m+[m
+[32m+[m[32m    @app.route("/login", methods=["GET", "POST"])[m
+[32m+[m[32m    def login():[m
+[32m+[m[32m        if current_user.is_authenticated:[m
+[32m+[m[32m            return redirect(url_for("dashboard"))[m
+[32m+[m[32m        if request.method == "POST":[m
+[32m+[m[32m            email = request.form.get("email", "").strip().lower()[m
+[32m+[m[32m            password = request.form.get("password", "")[m
+[32m+[m[32m            user = User.query.filter_by(email=email, active=True).first()[m
+[32m+[m[32m            if user and user.check_password(password):[m
+[32m+[m[32m                login_user(user)[m
+[32m+[m[32m                record_event("login", details={"result": "success"}, actor=user)[m
+[32m+[m[32m                db.session.commit()[m
+[32m+[m[32m                return redirect(url_for("dashboard"))[m
+[32m+[m[32m            record_event("login", "denied", details={"email": email[:254]})[m
+[32m+[m[32m            db.session.commit()[m
+[32m+[m[32m            flash("Invalid email or password.", "error")[m
+[32m+[m[32m        return render_template("login.html")[m
+[32m+[m
+[32m+[m[32m    @app.route("/logout", methods=["POST"])[m
+[32m+[m[32m    @login_required[m
+[32m+[m[32m    def logout():[m
+[32m+[m[32m        record_event("logout")[m
+[32m+[m[32m        db.session.commit()[m
+[32m+[m[32m        logout_user()[m
+[32m+[m[32m        return redirect(url_for("login"))[m
+[32m+[m
+[32m+[m[32m    @app.route("/dashboard")[m
+[32m+[m[32m    @login_required[m
+[32m+[m[32m    def dashboard():[m
+[32m+[m[32m        query = Document.query.filter(Document.deleted_at.is_(None))[m
+[32m+[m[32m        if current_user.role == "admin":[m
+[32m+[m[32m            # Admin sees metadata only, not file content, unless independently granted access.[m
+[32m+[m[32m            query = query.filter(or_(Document.owner_id == current_user.id, Document.id.in_(db.session.query(Permission.document_id).filter_by(user_id=current_user.id))))[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            shared_ids = db.session.query(Permission.document_id).filter_by(user_id=current_user.id).subquery()[m
+[32m+[m[32m            query = query.filter(or_(Document.owner_id == current_user.id, Document.id.in_(shared_ids)))[m
+[32m+[m[32m        name = request.args.get("name", "").strip()[m
+[32m+[m[32m        category = request.args.get("category", "").strip()[m
+[32m+[m[32m        owner = request.args.get("owner", "").strip().lower()[m
+[32m+[m[32m        start = request.args.get("start", "").strip()[m
+[32m+[m[32m        end = request.args.get("end", "").strip()[m
+[32m+[m[32m        if name:[m
+[32m+[m[32m            query = query.filter(Document.name.ilike(f"%{name}%"))[m
+[32m+[m[32m        if category:[m
+[32m+[m[32m            query = query.filter(Document.category.ilike(f"%{category}%"))[m
+[32m+[m[32m        if owner:[m
+[32m+[m[32m            query = query.join(User, Document.owner_id == User.id).filter(User.email.ilike(f"%{owner}%"))[m
+[32m+[m[32m        if start:[m
+[32m+[m[32m            try:[m
+[32m+[m[32m                query = query.filter(Document.created_at >= datetime.fromisoformat(start).replace(tzinfo=timezone.utc))[m
+[32m+[m[32m            except ValueError:[m
+[32m+[m[32m                flash("Invalid start date.", "error")[m
+[32m+[m[32m        if end:[m
+[32m+[m[32m            try:[m
+[32m+[m[32m                query = query.filter(Document.created_at < datetime.fromisoformat(end).replace(tzinfo=timezone.utc).replace(hour=23, minute=59, second=59))[m
+[32m+[m[32m            except ValueError:[m
+[32m+[m[32m                flash("Invalid end date.", "error")[m
+[32m+[m[32m        docs = query.order_by(Document.created_at.desc()).all()[m
+[32m+[m[32m        for doc in docs:[m
+[32m+[m[32m            doc.user_can_edit = can_edit(current_user, doc)[m
+[32m+[m[32m        return render_template("dashboard.html", documents=docs)[m
+[32m+[m
+[32m+[m[32m    @app.route("/documents/upload", methods=["GET", "POST"])[m
+[32m+[m[32m    @login_required[m
+[32m+[m[32m    def upload_document():[m
+[32m+[m[32m        if current_user.role not in {"owner", "admin"}:[m
+[32m+[m[32m            abort(403)[m
+[32m+[m[32m        if request.method == "POST":[m
+[32m+[m[32m            file = request.files.get("file")[m
+[32m+[m[32m            name = request.form.get("name", "").strip()[m
+[32m+[m[32m            category = request.form.get("category", "General").strip() or "General"[m
+[32m+[m[32m            if not file or not file.filename:[m
+[32m+[m[32m                flash("Choose a file to upload.", "error")[m
+[32m+[m[32m            elif not allowed_file(file.filename):[m
+[32m+[m[32m                flash("File type not allowed. Allowed: PDF, TXT, DOCX, XLSX, PNG, JPG.", "error")[m
+[32m+[m[32m            elif not name or len(name) > 255 or len(category) > 80:[m
+[32m+[m[32m                flash("Enter a valid document name and category.", "error")[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                original = secure_filename(file.filename)[m
+[32m+[m[32m                if not original:[m
+[32m+[m[32m                    flash("Invalid filename.", "error")[m
+[32m+[m[32m                    return render_template("upload.html")[m
+[32m+[m[32m                storage_name = uuid4().hex[m
+[32m+[m[32m                path = Path(app.config["UPLOAD_FOLDER"]) / storage_name[m
+[32m+[m[32m                file.save(path)[m
+[32m+[m[32m                size = path.stat().st_size[m
+[32m+[m[32m                if size > MAX_BYTES:[m
+[32m+[m[32m                    path.unlink(missing_ok=True)[m
+[32m+[m[32m                    abort(413)[m
+[32m+[m[32m                doc = Document(name=name, category=category, owner_id=current_user.id, storage_name=storage_name,[m
+[32m+[m[32m                               original_name=original, mime_type=file.mimetype or "application/octet-stream", size_bytes=size)[m
+[32m+[m[32m                db.session.add(doc)[m
+[32m+[m[32m                db.session.flush()[m
+[32m+[m[32m                record_event("document_upload", document_id=doc.id, details={"name": name, "category": category, "size_bytes": size})[m
+[32m+[m[32m                db.session.commit()[m
+[32m+[m[32m                flash("Document uploaded.", "success")[m
+[32m+[m[32m                return redirect(url_for("dashboard"))[m
+[32m+[m[32m        return render_template("upload.html")[m
+[32m+[m
+[32m+[m[32m    @app.route("/documents/<int:document_id>/download")[m
+[32m+[m[32m    @login_required[m
+[32m+[m[32m    def download_document(document_id):[m
+[32m+[m[32m        doc = get_authorized_document(document_id, "read")[m
+[32m+[m[32m        path = Path(app.config["UPLOAD_FOLDER"]) / doc.storage_name[m
+[32m+[m[32m        if not path.is_file():[m
+[32m+[m[32m            record_event("document_download", "error", document_id=doc.id, details={"reason": "file_missing"})[m
+[32m+[m[32m            db.session.commit()[m
+[32m+[m[32m            abort(404)[m
+[32m+[m[32m        record_event("document_download", document_id=doc.id, details={"size_bytes": doc.size_bytes})[m
+[32m+[m[32m        db.session.commit()[m
+[32m+[m[32m        return send_file(path, as_attachment=True, download_name=doc.original_name, mimetype="application/octet-stream", conditional=False)[m
+[32m+[m
+[32m+[m[32m    @app.route("/documents/<int:document_id>/edit", methods=["GET", "POST"])[m
+[32m+[m[32m    @login_required[m
+[32m+[m[32m    def edit_document(document_id):[m
+[32m+[m[32m        doc = get_authorized_document(document_id, "edit")[m
+[32m+[m[32m        if request.method == "POST":[m
+[32m+[m[32m            name = request.form.get("name", "").strip()[m
+[32m+[m[32m            category = request.form.get("category", "General").strip() or "General"[m
+[32m+[m[32m            if not name or len(name) > 255 or len(category) > 80:[m
+[32m+[m[32m                flash("Enter a valid name and category.", "error")[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                old_name = doc.name[m
+[32m+[m[32m                doc.name, doc.category, doc.updated_at = name, category, utcnow()[m
+[32m+[m[32m                record_event("document_edit", document_id=doc.id, details={"old_name": old_name, "new_name": name, "category": category})[m
+[32m+[m[32m                db.session.commit()[m
+[32m+[m[32m                flash("Document details updated.", "success")[m
+[32m+[m[32m                return redirect(url_for("dashboard"))[m
+[32m+[m[32m        return render_template("edit_document.html", document=doc)[m
+[32m+[m
+[32m+[m[32m    @app.route("/documents/<int:document_id>/delete", methods=["POST"])[m
+[32m+[m[32m    @login_required[m
+[32m+[m[32m    def delete_document(document_id):[m
+[32m+[m[32m        doc = get_authorized_document(document_id, "edit")[m
+[32m+[m[32m        if doc.owner_id != current_user.id and current_user.role != "admin":[m
+[32m+[m[32m            abort(403)[m
+[32m+[m[32m        doc.deleted_at = utcnow()[m
+[32m+[m[32m        record_event("document_delete", document_id=doc.id, details={"name": doc.name, "mode": "soft_delete"})[m
+[32m+[m[32m        db.session.commit()[m
+[32m+[m[32m        flash("Document moved to deleted state.", "success")[m
+[32m+[m[32m        return redirect(url_for("dashboard"))[m
+[32m+[m
+[32m+[m[32m    @app.route("/documents/<int:document_id>/permissions", methods=["GET", "POST"])[m
+[32m+[m[32m    @login_required[m
+[32m+[m[32m    def permissions(document_id):[m
+[32m+[m[32m        doc = db.session.get(Document, document_id)[m
+[32m+[m[32m        if not doc or doc.deleted_at is not None:[m
+[32m+[m[32m            abort(404)[m
+[32m+[m[32m        if doc.owner_id != current_user.id:[m
+[32m+[m[32m            record_event("permission_manage", "denied", document_id=document_id)[m
+[32m+[m[32m            db.session.commit()[m
+[32m+[m[32m            abort(404)[m
+[32m+[m[32m        if request.method == "POST":[m
+[32m+[m[32m            email = request.form.get("email", "").strip().lower()[m
+[32m+[m[32m            level = request.form.get("level", "read")[m
+[32m+[m[32m            target = User.query.filter_by(email=email, active=True).first()[m
+[32m+[m[32m            if not target or target.id == current_user.id or level not in {"read", "edit"}:[m
+[32m+[m[32m                flash("Choose an existing active user and a valid permission.", "error")[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                grant = Permission.query.filter_by(document_id=doc.id, user_id=target.id).first()[m
+[32m+[m[32m                old_level = grant.level if grant else None[m
+[32m+[m[32m                if grant:[m
+[32m+[m[32m                    grant.level = level[m
+[32m+[m[32m                    grant.granted_by_id = current_user.id[m
+[32m+[m[32m                    grant.created_at = utcnow()[m
+[32m+[m[32m                else:[m
+[32m+[m[32m                    db.session.add(Permission(document_id=doc.id, user_id=target.id, level=level, granted_by_id=current_user.id))[m
+[32m+[m[32m                record_event("permission_grant", document_id=doc.id, target_user_id=target.id,[m
+[32m+[m[32m                             details={"email": target.email, "old_level": old_level, "new_level": level})[m
+[32m+[m[32m                db.session.commit()[m
+[32m+[m[32m                flash("Permission saved.", "success")[m
+[32m+[m[32m                return redirect(url_for("permissions", document_id=doc.id))[m
+[32m+[m[32m        grants = Permission.query.filter_by(document_id=doc.id).all()[m
+[32m+[m[32m        return render_template("permissions.html", document=doc, grants=grants)[m
+[32m+[m
+[32m+[m[32m    @app.route("/documents/<int:document_id>/permissions/<int:grant_id>/revoke", methods=["POST"])[m
+[32m+[m[32m    @login_required[m
+[32m+[m[32m    def revoke_permission(document_id, grant_id):[m
+[32m+[m[32m        doc = db.session.get(Document, document_id)[m
+[32m+[m[32m        grant = db.session.get(Permission, grant_id)[m
+[32m+[m[32m        if not doc or doc.owner_id != current_user.id or not grant or grant.document_id != doc.id:[m
+[32m+[m[32m            record_event("permission_revoke", "denied", document_id=document_id, details={"grant_id": grant_id})[m
+[32m+[m[32m            db.session.commit()[m
+[32m+[m[32m            abort(404)[m
+[32m+[m[32m        target_id = grant.user_id[m
+[32m+[m[32m        target_email = grant.user.email[m
+[32m+[m[32m        db.session.delete(grant)[m
+[32m+[m[32m        record_event("permission_revoke", document_id=doc.id, target_user_id=target_id, details={"email": target_email})[m
+[32m+[m[32m        db.session.commit()[m
+[32m+[m[32m        flash("Access revoked. Future requests will be denied.", "success")[m
+[32m+[m[32m        return redirect(url_for("permissions", document_id=doc.id))[m
+[32m+[m
+[32m+[m[32m    @app.route("/admin")[m
+[32m+[m[32m    @login_required[m
+[32m+[m[32m    def admin_dashboard():[m
+[32m+[m[32m        if current_user.role != "admin":[m
+[32m+[m[32m            abort(403)[m
+[32m+[m[32m        events = AuditEvent.query.order_by(AuditEvent.id.desc()).limit(200).all()[m
+[32m+[m[32m        users = User.query.order_by(User.created_at.desc()).all()[m
+[32m+[m[32m        return render_template("admin.html", events=events, users=users, chain_valid=verify_audit_chain())[m
+[32m+[m
+[32m+[m[32m    @app.route("/admin/users/<int:user_id>/role", methods=["POST"])[m
+[32m+[m[32m    @login_required[m
+[32m+[m[32m    def change_role(user_id):[m
+[32m+[m[32m        if current_user.role != "admin":[m
+[32m+[m[32m            abort(403)[m
+[32m+[m[32m        user = db.session.get(User, user_id)[m
+[32m+[m[32m        role = request.form.get("role", "")[m
+[32m+[m[32m        if not user or role not in {"admin", "owner", "viewer"}:[m
+[32m+[m[32m            abort(400)[m
+[32m+[m[32m        old_role = user.role[m
+[32m+[m[32m        user.role = role[m
+[32m+[m[32m        record_event("user_role_change", target_user_id=user.id, details={"email": user.email, "old_role": old_role, "new_role": role})[m
+[32m+[m[32m        db.session.commit()[m
+[32m+[m[32m        flash("User role updated.", "success")[m
+[32m+[m[32m        return redirect(url_for("admin_dashboard"))[m
+[32m+[m
+[32m+[m[32m    @app.errorhandler(413)[m
+[32m+[m[32m    def too_large(_error):[m
+[32m+[m[32m        return render_template("error.html", code=413, message="File too large. Maximum size is 10 MB."), 413[m
+[32m+[m
+[32m+[m[32m    @app.errorhandler(403)[m
+[32m+[m[32m    def forbidden(_error):[m
+[32m+[m[32m        return render_template("error.html", code=403, message="You are not allowed to perform this action."), 403[m
+[32m+[m
+[32m+[m[32m    @app.errorhandler(404)[m
+[32m+[m[32m    def not_found(_error):[m
+[32m+[m[32m        return render_template("error.html", code=404, message="This resource was not found or you do not have access to it."), 404[m
+[32m+[m
+[32m+[m[32m    return app[m
+[32m+[m
+[32m+[m
+[32m+[m[32mapp = create_app()[m
+[32m+[m
+[32m+[m[32mif __name__ == "__main__":[m
+[32m+[m[32m    if os.environ.get("SECRET_KEY", "dev-only-change-this-secret") == "dev-only-change-this-secret":[m
+[32m+[m[32m        print("WARNING: Using development SECRET_KEY. Set SECRET_KEY in .env before deployment.")[m
+[32m+[m[32m    app.run(debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true")[m
+[1mdiff --git a/force_fix.py b/force_fix.py[m
+[1mnew file mode 100644[m
+[1mindex 0000000..c97aaba[m
+[1m--- /dev/null[m
+[1m+++ b/force_fix.py[m
+[36m@@ -0,0 +1,53 @@[m
+[32m+[m[32mimport os[m
+[32m+[m[32mfrom app import app, db, User, Document, Permission[m
+[32m+[m
+[32m+[m[32m# Define paths matching your project layout[m
+[32m+[m[32mBASE_DIR = os.path.abspath(os.path.dirname(__file__))[m
+[32m+[m[32mUPLOAD_FOLDER = os.path.join(BASE_DIR, 'instance', 'private_uploads')[m
+[32m+[m[32mos.makedirs(UPLOAD_FOLDER, exist_ok=True)[m
+[32m+[m
+[32m+[m[32m# Define our exact static identifier[m
+[32m+[m[32mFIXED_STORAGE_NAME = "my_exact_test_file_id"[m
+[32m+[m
+[32m+[m[32mwith app.app_context():[m
+[32m+[m[32m    # 1. Clear out older mock documents to avoid collision issues[m
+[32m+[m[32m    Document.query.filter_by(name="test_document.pdf").delete()[m
+[32m+[m[32m    db.session.commit()[m
+[32m+[m
+[32m+[m[32m    # 2. Grab your logged in user accounts[m
+[32m+[m[32m    current_viewer = User.query.filter_by(email="hxclassy9960@gmail.com").first()[m
+[32m+[m[32m    mock_owner = User.query.filter_by(email="owner@example.com").first()[m
+[32m+[m
+[32m+[m[32m    # 3. Insert the clean document entry with our fixed static identifier string[m
+[32m+[m[32m    test_doc = Document([m
+[32m+[m[32m        name="test_document.pdf",[m
+[32m+[m[32m        category="Finance",[m
+[32m+[m[32m        owner_id=mock_owner.id if mock_owner else 1,[m
+[32m+[m[32m        storage_name=FIXED_STORAGE_NAME,[m
+[32m+[m[32m        original_name="test_document.pdf",[m
+[32m+[m[32m        mime_type="application/pdf",[m
+[32m+[m[32m        size_bytes=1024[m
+[32m+[m[32m    )[m
+[32m+[m[32m    db.session.add(test_doc)[m
+[32m+[m[32m    db.session.commit()[m
+[32m+[m
+[32m+[m[32m    # 4. Bind the view access permission settings record[m
+[32m+[m[32m    if current_viewer and mock_owner:[m
+[32m+[m[32m        # Clear duplicate permission paths if any exist[m
+[32m+[m[32m        Permission.query.filter_by(document_id=test_doc.id, user_id=current_viewer.id).delete()[m
+[32m+[m[41m        [m
+[32m+[m[32m        share_permission = Permission([m
+[32m+[m[32m            document_id=test_doc.id,[m
+[32m+[m[32m            user_id=current_viewer.id,[m
+[32m+[m[32m            level="read",[m
+[32m+[m[32m            granted_by_id=mock_owner.id[m
+[32m+[m[32m        )[m
+[32m+[m[32m        db.session.add(share_permission)[m
+[32m+[m[32m        db.session.commit()[m
+[32m+[m
+[32m+[m[32m    # 5. Automatically create the matching physical file item on disk storage folder[m
+[32m+[m[32m    target_file_path = os.path.join(UPLOAD_FOLDER, FIXED_STORAGE_NAME)[m
+[32m+[m[32m    with open(target_file_path, "w") as f:[m
+[32m+[m[32m        f.write("This is placeholder text inside the dummy testing document file.")[m
+[32m+[m
+[32m+[m[32m    print(f"✅ Success! Database entry matching file created at: {target_file_path}")[m
+\ No newline at end of file[m
+[1mdiff --git a/requirements.txt b/requirements.txt[m
+[1mnew file mode 100644[m
+[1mindex 0000000..99472db[m
+[1m--- /dev/null[m
+[1m+++ b/requirements.txt[m
+[36m@@ -0,0 +1,8 @@[m
+[32m+[m[32mFlask>=3.1,<4.0[m
+[32m+[m[32mFlask-SQLAlchemy>=3.1,<4.0[m
+[32m+[m[32mFlask-Login>=0.6,<1.0[m
+[32m+[m[32mFlask-WTF>=1.2,<2.0[m
+[32m+[m[32mpython-dotenv>=1.0,<2.0[m
+[32m+[m[32mpsycopg[binary]>=3.2,<4.0[m
+[32m+[m[32mpytest>=8.0,<9.0[m
+[32m+[m[32mgunicorn>=23.0,<24.0[m
+[1mdiff --git a/schema.sql b/schema.sql[m
+[1mnew file mode 100644[m
+[1mindex 0000000..cadc8c6[m
+[1m--- /dev/null[m
+[1m+++ b/schema.sql[m
+[36m@@ -0,0 +1,47 @@[m
+[32m+[m[32m-- Reference schema for PostgreSQL. The Flask-SQLAlchemy models in app.py are authoritative.[m
+[32m+[m[32mCREATE TABLE "user" ([m
+[32m+[m[32m  id BIGSERIAL PRIMARY KEY,[m
+[32m+[m[32m  email VARCHAR(254) NOT NULL UNIQUE,[m
+[32m+[m[32m  password_hash VARCHAR(256) NOT NULL,[m
+[32m+[m[32m  role VARCHAR(20) NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin','owner','viewer')),[m
+[32m+[m[32m  active BOOLEAN NOT NULL DEFAULT TRUE,[m
+[32m+[m[32m  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()[m
+[32m+[m[32m);[m
+[32m+[m[32mCREATE TABLE document ([m
+[32m+[m[32m  id BIGSERIAL PRIMARY KEY,[m
+[32m+[m[32m  name VARCHAR(255) NOT NULL,[m
+[32m+[m[32m  category VARCHAR(80) NOT NULL DEFAULT 'General',[m
+[32m+[m[32m  owner_id BIGINT NOT NULL REFERENCES "user"(id),[m
+[32m+[m[32m  storage_name VARCHAR(80) NOT NULL UNIQUE,[m
+[32m+[m[32m  original_name VARCHAR(255) NOT NULL,[m
+[32m+[m[32m  mime_type VARCHAR(120) NOT NULL DEFAULT 'application/octet-stream',[m
+[32m+[m[32m  size_bytes INTEGER NOT NULL CHECK (size_bytes >= 0),[m
+[32m+[m[32m  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),[m
+[32m+[m[32m  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),[m
+[32m+[m[32m  deleted_at TIMESTAMPTZ NULL[m
+[32m+[m[32m);[m
+[32m+[m[32mCREATE TABLE permission ([m
+[32m+[m[32m  id BIGSERIAL PRIMARY KEY,[m
+[32m+[m[32m  document_id BIGINT NOT NULL REFERENCES document(id),[m
+[32m+[m[32m  user_id BIGINT NOT NULL REFERENCES "user"(id),[m
+[32m+[m[32m  level VARCHAR(10) NOT NULL CHECK (level IN ('read','edit')),[m
+[32m+[m[32m  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),[m
+[32m+[m[32m  granted_by_id BIGINT NOT NULL REFERENCES "user"(id),[m
+[32m+[m[32m  UNIQUE(document_id,user_id)[m
+[32m+[m[32m);[m
+[32m+[m[32mCREATE TABLE audit_event ([m
+[32m+[m[32m  id BIGSERIAL PRIMARY KEY,[m
+[32m+[m[32m  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),[m
+[32m+[m[32m  actor_id BIGINT NULL REFERENCES "user"(id),[m
+[32m+[m[32m  actor_email VARCHAR(254) NOT NULL,[m
+[32m+[m[32m  action VARCHAR(60) NOT NULL,[m
+[32m+[m[32m  document_id BIGINT NULL,[m
+[32m+[m[32m  target_user_id BIGINT NULL,[m
+[32m+[m[32m  outcome VARCHAR(20) NOT NULL,[m
+[32m+[m[32m  details TEXT NOT NULL DEFAULT '{}',[m
+[32m+[m[32m  previous_hash VARCHAR(64) NOT NULL,[m
+[32m+[m[32m  event_hash VARCHAR(64) NOT NULL UNIQUE[m
+[32m+[m[32m);[m
+[32m+[m[32mCREATE INDEX ix_document_owner_created ON document(owner_id, created_at DESC);[m
+[32m+[m[32mCREATE INDEX ix_permission_user_document ON permission(user_id, document_id);[m
+[32m+[m[32mCREATE INDEX ix_audit_occurred_action ON audit_event(occurred_at DESC, action);[m
+[1mdiff --git a/seed_db.py b/seed_db.py[m
+[1mnew file mode 100644[m
+[1mindex 0000000..2dbe75c[m
+[1m--- /dev/null[m
+[1m+++ b/seed_db.py[m
+[36m@@ -0,0 +1,40 @@[m
+[32m+[m[32mfrom app import app, db, User, Document, Permission[m
+[32m+[m
+[32m+[m[32mwith app.app_context():[m
+[32m+[m[32m    # 1. Fetch your current logged-in user account[m
+[32m+[m[32m    current_viewer = User.query.filter_by(email="hxclassy9960@gmail.com").first()[m
+[32m+[m[41m    [m
+[32m+[m[32m    # 2. Fetch or create the mock document owner[m
+[32m+[m[32m    mock_owner = User.query.filter_by(email="owner@example.com").first()[m
+[32m+[m[32m    if not mock_owner:[m
+[32m+[m[32m        mock_owner = User(email="owner@example.com", role="viewer")[m
+[32m+[m[32m        mock_owner.set_password("password123")[m
+[32m+[m[32m        db.session.add(mock_owner)[m
+[32m+[m[32m        db.session.commit()[m
+[32m+[m
+[32m+[m[32m    # 3. Create the document owned by the mock owner[m
+[32m+[m[32m    test_doc = Document([m
+[32m+[m[32m        name="test_document.pdf",[m
+[32m+[m[32m        category="Finance",[m
+[32m+[m[32m        owner_id=mock_owner.id,[m
+[32m+[m[32m        storage_name="unique_test_storage_key_123",[m
+[32m+[m[32m        original_name="test_document.pdf",[m
+[32m+[m[32m        mime_type="application/pdf",[m
+[32m+[m[32m        size_bytes=1024[m
+[32m+[m[32m    )[m
+[32m+[m[32m    db.session.add(test_doc)[m
+[32m+[m[32m    db.session.commit()[m
+[32m+[m
+[32m+[m[32m    # 4. CRITICAL FIX: Share the document explicitly with your active user account[m
+[32m+[m[32m    if current_viewer:[m
+[32m+[m[32m        share_permission = Permission([m
+[32m+[m[32m            document_id=test_doc.id,[m
+[32m+[m[32m            user_id=current_viewer.id,[m
+[32m+[m[32m            level="read",  # Gives read permission to pass the filter query check[m
+[32m+[m[32m            granted_by_id=mock_owner.id[m
+[32m+[m[32m        )[m
+[32m+[m[32m        db.session.add(share_permission)[m
+[32m+[m[32m        db.session.commit()[m
+[32m+[m[32m        print("Success! Document inserted and permission shared with hxclassy9960@gmail.com.")[m
+[32m+[m[32m    else:[m
+[32m+[m[32m        print("Error: Could not find user account 'hxclassy9960@gmail.com' in the database.")[m
+\ No newline at end of file[m
+[1mdiff --git a/templates/admin.html b/templates/admin.html[m
+[1mnew file mode 100644[m
+[1mindex 0000000..f0ac044[m
+[1m--- /dev/null[m
+[1m+++ b/templates/admin.html[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32m{% extends 'base.html' %}{% block title %}Admin and audit · TrustVault{% endblock %}{% block content %}<section class="panel"><h1>Administration & audit</h1><p>Audit chain status: <strong>{{ 'VALID' if chain_valid else 'FAILED — investigate' }}</strong></p><p class="muted">Admins can manage account roles and inspect audit events. Admin role does not automatically allow document downloads.</p><h2>Users</h2><table><thead><tr><th>Email</th><th>Current role</th><th>Change role</th></tr></thead><tbody>{% for user in users %}<tr><td>{{ user.email }}</td><td>{{ user.role }}</td><td><form method="post" action="{{ url_for('change_role',user_id=user.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><select name="role"><option value="viewer" {% if user.role=='viewer' %}selected{% endif %}>viewer</option><option value="owner" {% if user.role=='owner' %}selected{% endif %}>owner</option><option value="admin" {% if user.role=='admin' %}selected{% endif %}>admin</option></select> <button>Update</button></form></td></tr>{% endfor %}</tbody></table></section><section class="panel"><h2>Latest 200 audit events</h2><table><thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Document</th><th>Outcome</th><th>Hash</th></tr></thead><tbody>{% for event in events %}<tr><td>{{ event.occurred_at.strftime('%Y-%m-%d %H:%M:%S') }}</td><td>{{ event.actor_email }}</td><td>{{ event.action }}</td><td>{{ event.document_id or '—' }}</td><td>{{ event.outcome }}</td><td><code>{{ event.event_hash[:16] }}…</code></td></tr>{% endfor %}</tbody></table></section>{% endblock %}[m
+\ No newline at end of file[m
+[1mdiff --git a/templates/base.html b/templates/base.html[m
+[1mnew file mode 100644[m
+[1mindex 0000000..963ebba[m
+[1m--- /dev/null[m
+[1m+++ b/templates/base.html[m
+[36m@@ -0,0 +1,4 @@[m
+[32m+[m[32m<!doctype html>[m
+[32m+[m[32m<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% block title %}TrustVault{% endblock %}</title><style>[m
+[32m+[m[32m:root{font-family:Arial,sans-serif;color:#172033;background:#f4f7fb}*{box-sizing:border-box}body{margin:0}header{background:#102542;color:white;padding:15px 5%;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}header a{color:white;text-decoration:none;margin-right:14px}.brand{font-weight:bold;font-size:1.2rem}.container{max-width:1100px;margin:28px auto;padding:0 16px}.panel{background:white;border:1px solid #dce3ee;border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 3px 12px #1527430a}input,select,button{font:inherit;padding:10px;border:1px solid #c8d2e0;border-radius:7px;max-width:100%}button,.btn{background:#2457c5;color:white;border:0;padding:10px 14px;border-radius:7px;cursor:pointer;text-decoration:none;display:inline-block}button.danger{background:#b42318}.btn.secondary{background:#e9eff9;color:#1b3768}label{display:block;font-size:.9rem;margin:8px 0 4px}form.inline{display:inline}form.stack{display:grid;gap:8px;max-width:480px}.flash{padding:12px;border-radius:8px;background:#e7f7ed;margin:10px 0}.flash.error{background:#ffeded;color:#8c1d18}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #e5eaf1;vertical-align:top}th{background:#f7f9fc}small,.muted{color:#65738a}.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.filters label{margin:0}code{overflow-wrap:anywhere}@media(max-width:700px){table{font-size:.86rem}th,td{padding:7px}.container{margin:16px auto}}[m
+[32m+[m[32m</style></head><body><header><div><a class="brand" href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('login') }}">🔐 TrustVault</a></div><nav>{% if current_user.is_authenticated %}<a href="{{ url_for('dashboard') }}">Documents</a>{% if current_user.role in ['owner','admin'] %}<a href="{{ url_for('upload_document') }}">Upload</a>{% endif %}{% if current_user.role == 'admin' %}<a href="{{ url_for('admin_dashboard') }}">Admin & Audit</a>{% endif %}<span>{{ current_user.email }} · {{ current_user.role }}</span> <form class="inline" method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="secondary" type="submit">Log out</button></form>{% endif %}</nav></header><main class="container">{% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="flash {{ 'error' if category=='error' else '' }}">{{ message }}</div>{% endfor %}{% endwith %}{% block content %}{% endblock %}</main></body></html>[m
+\ No newline at end of file[m
+[1mdiff --git a/templates/dashboard.html b/templates/dashboard.html[m
+[1mnew file mode 100644[m
+[1mindex 0000000..5f751d2[m
+[1m--- /dev/null[m
+[1m+++ b/templates/dashboard.html[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32m{% extends 'base.html' %}{% block title %}Documents · TrustVault{% endblock %}{% block content %}<section class="panel"><h1>Your documents</h1><p class="muted">Only documents you own or that have been explicitly shared with you are listed.</p><form class="filters" method="get"><div><label>Name</label><input name="name" value="{{ request.args.get('name','') }}" placeholder="Document name"></div><div><label>Owner email</label><input name="owner" value="{{ request.args.get('owner','') }}" placeholder="Owner"></div><div><label>Category</label><input name="category" value="{{ request.args.get('category','') }}" placeholder="Category"></div><div><label>From</label><input type="date" name="start" value="{{ request.args.get('start','') }}"></div><div><label>To</label><input type="date" name="end" value="{{ request.args.get('end','') }}"></div><button>Search</button><a class="btn secondary" href="{{ url_for('dashboard') }}">Clear</a></form></section><section class="panel"><h2>Document list</h2>{% if documents %}<table><thead><tr><th>Name</th><th>Category</th><th>Owner</th><th>Size</th><th>Created</th><th>Actions</th></tr></thead><tbody>{% for doc in documents %}<tr><td>{{ doc.name }}<br><small>{{ doc.original_name }}</small></td><td>{{ doc.category }}</td><td>{{ doc.owner.email }}</td><td>{{ (doc.size_bytes/1024)|round(1) }} KB</td><td>{{ doc.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td><a class="btn" href="{{ url_for('download_document',document_id=doc.id) }}">Download</a> {% if doc.user_can_edit %}<a class="btn secondary" href="{{ url_for('edit_document',document_id=doc.id) }}">Edit</a>{% endif %}{% if doc.owner_id == current_user.id %}<a class="btn secondary" href="{{ url_for('permissions',document_id=doc.id) }}">Share</a><form class="inline" method="post" action="{{ url_for('delete_document',document_id=doc.id) }}" onsubmit="return confirm('Delete this document?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="danger">Delete</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table>{% else %}<p>No documents found. If you are a document owner, upload your first document.</p>{% endif %}</section>{% endblock %}[m
+\ No newline at end of file[m
+[1mdiff --git a/templates/edit_document.html b/templates/edit_document.html[m
+[1mnew file mode 100644[m
+[1mindex 0000000..5234ebc[m
+[1m--- /dev/null[m
+[1m+++ b/templates/edit_document.html[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32m{% extends 'base.html' %}{% block title %}Edit document · TrustVault{% endblock %}{% block content %}<section class="panel"><h1>Edit document details</h1><p class="muted">Editing metadata does not replace the uploaded file.</p><form class="stack" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Name</label><input name="name" value="{{ document.name }}" required maxlength="255"><label>Category</label><input name="category" value="{{ document.category }}" maxlength="80"><button>Save changes</button></form></section>{% endblock %}[m
+\ No newline at end of file[m
+[1mdiff --git a/templates/error.html b/templates/error.html[m
+[1mnew file mode 100644[m
+[1mindex 0000000..65508d8[m
+[1m--- /dev/null[m
+[1m+++ b/templates/error.html[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32m{% extends 'base.html' %}{% block title %}Error {{ code }} · TrustVault{% endblock %}{% block content %}<section class="panel"><h1>Error {{ code }}</h1><p>{{ message }}</p><a class="btn" href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('login') }}">Return</a></section>{% endblock %}[m
+\ No newline at end of file[m
+[1mdiff --git a/templates/login.html b/templates/login.html[m
+[1mnew file mode 100644[m
+[1mindex 0000000..b151c19[m
+[1m--- /dev/null[m
+[1m+++ b/templates/login.html[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32m{% extends 'base.html' %}{% block title %}Sign in · TrustVault{% endblock %}{% block content %}<section class="panel"><h1>Sign in to TrustVault</h1><p class="muted">Private document sharing with an audit trail.</p><form class="stack" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Email</label><input name="email" type="email" required autocomplete="username"><label>Password</label><input name="password" type="password" required autocomplete="current-password"><button type="submit">Sign in</button></form><p>New here? <a href="{{ url_for('register') }}">Create an account</a></p></section>{% endblock %}[m
+\ No newline at end of file[m
+[1mdiff --git a/templates/permissions.html b/templates/permissions.html[m
+[1mnew file mode 100644[m
+[1mindex 0000000..0ef6a6c[m
+[1m--- /dev/null[m
+[1m+++ b/templates/permissions.html[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32m{% extends 'base.html' %}{% block title %}Share document · TrustVault{% endblock %}{% block content %}<section class="panel"><h1>Share: {{ document.name }}</h1><p>Grant access to an existing registered user by exact email address. Revocation applies to future requests.</p><form class="stack" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>User email</label><input type="email" name="email" required><label>Permission</label><select name="level"><option value="read">Read only</option><option value="edit">Edit metadata and read</option></select><button>Grant permission</button></form></section><section class="panel"><h2>Current grants</h2>{% if grants %}<table><thead><tr><th>User</th><th>Level</th><th>Granted by</th><th>Action</th></tr></thead><tbody>{% for grant in grants %}<tr><td>{{ grant.user.email }}</td><td>{{ grant.level }}</td><td>{{ grant.granted_by.email }}</td><td><form method="post" action="{{ url_for('revoke_permission',document_id=document.id,grant_id=grant.id) }}" onsubmit="return confirm('Revoke access?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="danger">Revoke</button></form></td></tr>{% endfor %}</tbody></table>{% else %}<p>No access grants yet.</p>{% endif %}</section>{% endblock %}[m
+\ No newline at end of file[m
+[1mdiff --git a/templates/register.html b/templates/register.html[m
+[1mnew file mode 100644[m
+[1mindex 0000000..a27feb6[m
+[1m--- /dev/null[m
+[1m+++ b/templates/register.html[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32m{% extends 'base.html' %}{% block title %}Create account · TrustVault{% endblock %}{% block content %}<section class="panel"><h1>Create account</h1><p class="muted">New accounts start as viewers. An administrator can promote a user to document owner.</p><form class="stack" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Email</label><input name="email" type="email" required maxlength="254" autocomplete="username"><label>Password (12+ characters)</label><input name="password" type="password" required minlength="12" autocomplete="new-password"><button type="submit">Create account</button></form><p>Already registered? <a href="{{ url_for('login') }}">Sign in</a></p></section>{% endblock %}[m
+\ No newline at end of file[m
+[1mdiff --git a/templates/upload.html b/templates/upload.html[m
+[1mnew file mode 100644[m
+[1mindex 0000000..9c0693d[m
+[1m--- /dev/null[m
+[1m+++ b/templates/upload.html[m
+[36m@@ -0,0 +1 @@[m
+[32m+[m[32m{% extends 'base.html' %}{% block title %}Upload · TrustVault{% endblock %}{% block content %}<section class="panel"><h1>Upload document</h1><p class="muted">Allowed: PDF, TXT, DOCX, XLSX, PNG, JPG/JPEG. Maximum 10 MB. Files are stored outside the public static folder.</p><form class="stack" method="post" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Display name</label><input name="name" required maxlength="255"><label>Category</label><input name="category" maxlength="80" value="General"><label>File</label><input name="file" type="file" required accept=".pdf,.txt,.docx,.xlsx,.png,.jpg,.jpeg"><button type="submit">Upload securely</button></form></section>{% endblock %}[m
+\ No newline at end of file[m
+[1mdiff --git a/tests/generate_valid_pdf.py b/tests/generate_valid_pdf.py[m
+[1mnew file mode 100644[m
+[1mindex 0000000..0c02faf[m
+[1m--- /dev/null[m
+[1m+++ b/tests/generate_valid_pdf.py[m
+[36m@@ -0,0 +1,14 @@[m
+[32m+[m[32mimport os[m
+[32m+[m
+[32m+[m[32m# Locate your target project folder structure path[m[41m [m
+[32m+[m[32mBASE_DIR = os.path.abspath(os.path.dirname(__file__))[m
+[32m+[m[32mTARGET_PATH = os.path.join(BASE_DIR, 'instance', 'private_uploads', 'my_exact_test_file_id')[m
+[32m+[m
+[32m+[m[32m# Minimalist binary valid PDF structure header block layout bytes[m
+[32m+[m[32mVALID_PDF_BYTES = b'%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000052 00000 n\n0000000101 00000 n\ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n178\n%%EOF'[m
+[32m+[m
+[32m+[m[32m# Overwrite the dummy file with actual valid binary PDF headers[m
+[32m+[m[32mwith open(TARGET_PATH, 'wb') as f:[m
+[32m+[m[32m    f.write(VALID_PDF_BYTES)[m
+[32m+[m
+[32m+[m[32mprint("✅ Successfully injected genuine PDF structural data headers into the backend storage file!")[m
+\ No newline at end of file[m
+[1mdiff --git a/tests/test_auth.py b/tests/test_auth.py[m
+[1mnew file mode 100644[m
+[1mindex 0000000..1af137e[m
+[1m--- /dev/null[m
+[1m+++ b/tests/test_auth.py[m
+[36m@@ -0,0 +1,114 @@[m
+[32m+[m[32mimport io[m
+[32m+[m[32mimport os[m
+[32m+[m[32mimport pytest[m
+[32m+[m[32mfrom app import create_app, db, User, Document, Permission, AuditEvent, verify_audit_chain[m
+[32m+[m
+[32m+[m[32m@pytest.fixture()[m
+[32m+[m[32mdef app(tmp_path):[m
+[32m+[m[32m    upload_dir = tmp_path / "uploads"[m
+[32m+[m[32m    test_app = create_app({[m
+[32m+[m[32m        "TESTING": True,[m
+[32m+[m[32m        "WTF_CSRF_ENABLED": False,[m
+[32m+[m[32m        "SECRET_KEY": "test-secret-key-not-for-production",[m
+[32m+[m[32m        "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'test.db'}",[m
+[32m+[m[32m        "UPLOAD_FOLDER": str(upload_dir),[m
+[32m+[m[32m        "MAX_CONTENT_LENGTH": 10 * 1024 * 1024,[m
+[32m+[m[32m    })[m
+[32m+[m[32m    with test_app.app_context():[m
+[32m+[m[32m        db.drop_all()[m
+[32m+[m[32m        db.create_all()[m
+[32m+[m[32m    yield test_app[m
+[32m+[m[32m    with test_app.app_context():[m
+[32m+[m[32m        db.session.remove()[m
+[32m+[m[32m        db.drop_all()[m
+[32m+[m
+[32m+[m[32m@pytest.fixture()[m
+[32m+[m[32mdef client(app):[m
+[32m+[m[32m    return app.test_client()[m
+[32m+[m
+[32m+[m[32mdef make_user(app, email, role):[m
+[32m+[m[32m    with app.app_context():[m
+[32m+[m[32m        user = User(email=email, role=role)[m
+[32m+[m[32m        user.set_password("correct-horse-battery")[m
+[32m+[m[32m        db.session.add(user)[m
+[32m+[m[32m        db.session.commit()[m
+[32m+[m[32m        return user.id[m
+[32m+[m
+[32m+[m[32mdef login(client, email):[m
+[32m+[m[32m    return client.post('/login', data={'email': email, 'password': 'correct-horse-battery'}, follow_redirects=True)[m
+[32m+[m
+[32m+[m[32mdef test_registration_always_creates_viewer(client, app):[m
+[32m+[m[32m    response = client.post('/register', data={'email': 'new@example.com', 'password': 'correct-horse-battery', 'role': 'admin'}, follow_redirects=True)[m
+[32m+[m[32m    assert response.status_code == 200[m
+[32m+[m[32m    with app.app_context():[m
+[32m+[m[32m        user = User.query.filter_by(email='new@example.com').one()[m
+[32m+[m[32m        assert user.role == 'viewer'[m
+[32m+[m[32m        assert user.password_hash != 'correct-horse-battery'[m
+[32m+[m
+[32m+[m[32mdef test_dashboard_requires_login(client):[m
+[32m+[m[32m    response = client.get('/dashboard')[m
+[32m+[m[32m    assert response.status_code in (302, 401)[m
+[32m+[m
+[32m+[m[32mdef test_user_cannot_download_another_users_document(client, app, tmp_path):[m
+[32m+[m[32m    owner_id = make_user(app, 'owner@example.com', 'owner')[m
+[32m+[m[32m    make_user(app, 'intruder@example.com', 'viewer')[m
+[32m+[m[32m    with app.app_context():[m
+[32m+[m[32m        doc = Document(name='Secret', category='Legal', owner_id=owner_id, storage_name='secret.bin', original_name='secret.pdf', mime_type='application/pdf', size_bytes=6)[m
+[32m+[m[32m        db.session.add(doc); db.session.commit(); doc_id = doc.id[m
+[32m+[m[32m        (tmp_path / 'uploads' / 'secret.bin').write_bytes(b'secret')[m
+[32m+[m[32m    login(client, 'intruder@example.com')[m
+[32m+[m[32m    response = client.get(f'/documents/{doc_id}/download')[m
+[32m+[m[32m    assert response.status_code == 404[m
+[32m+[m[32m    with app.app_context():[m
+[32m+[m[32m        assert AuditEvent.query.filter_by(action='document_access', outcome='denied', document_id=doc_id).count() == 1[m
+[32m+[m
+[32m+[m[32mdef test_granted_read_can_download_but_cannot_edit(client, app, tmp_path):[m
+[32m+[m[32m    owner_id = make_user(app, 'owner2@example.com', 'owner')[m
+[32m+[m[32m    viewer_id = make_user(app, 'viewer2@example.com', 'viewer')[m
+[32m+[m[32m    with app.app_context():[m
+[32m+[m[32m        doc = Document(name='Shared', category='General', owner_id=owner_id, storage_name='shared.bin', original_name='shared.txt', mime_type='text/plain', size_bytes=5)[m
+[32m+[m[32m        db.session.add(doc); db.session.flush()[m
+[32m+[m[32m        db.session.add(Permission(document_id=doc.id, user_id=viewer_id, level='read', granted_by_id=owner_id)); db.session.commit(); doc_id=doc.id[m
+[32m+[m[32m        (tmp_path / 'uploads' / 'shared.bin').write_bytes(b'hello')[m
+[32m+[m[32m    login(client, 'viewer2@example.com')[m
+[32m+[m[32m    assert client.get(f'/documents/{doc_id}/download').status_code == 200[m
+[32m+[m[32m    assert client.get(f'/documents/{doc_id}/edit').status_code == 404[m
+[32m+[m
+[32m+[m[32mdef test_revoked_user_cannot_download(client, app, tmp_path):[m
+[32m+[m[32m    owner_id = make_user(app, 'owner3@example.com', 'owner')[m
+[32m+[m[32m    viewer_id = make_user(app, 'viewer3@example.com', 'viewer')[m
+[32m+[m[32m    with app.app_context():[m
+[32m+[m[32m        doc = Document(name='Revoked', category='General', owner_id=owner_id, storage_name='revoked.bin', original_name='revoked.txt', mime_type='text/plain', size_bytes=6)[m
+[32m+[m[32m        db.session.add(doc); db.session.flush()[m
+[32m+[m[32m        grant = Permission(document_id=doc.id, user_id=viewer_id, level='read', granted_by_id=owner_id)[m
+[32m+[m[32m        db.session.add(grant); db.session.commit(); doc_id=doc.id; grant_id=grant.id[m
+[32m+[m[32m        (tmp_path / 'uploads' / 'revoked.bin').write_bytes(b'secret')[m
+[32m+[m[32m    login(client, 'owner3@example.com')[m
+[32m+[m[32m    response = client.post(f'/documents/{doc_id}/permissions/{grant_id}/revoke')[m
+[32m+[m[32m    assert response.status_code == 302[m
+[32m+[m[32m    client.post('/logout')[m
+[32m+[m[32m    login(client, 'viewer3@example.com')[m
+[32m+[m[32m    assert client.get(f'/documents/{doc_id}/download').status_code == 404[m
+[32m+[m
+[32m+[m[32mdef test_viewer_cannot_upload(client, app):[m
+[32m+[m[32m    make_user(app, 'viewer4@example.com', 'viewer')[m
+[32m+[m[32m    login(client, 'viewer4@example.com')[m
+[32m+[m[32m    assert client.get('/documents/upload').status_code == 403[m
+[32m+[m
+[32m+[m[32mdef test_read_grant_cannot_edit_document(client, app):[m
+[32m+[m[32m    owner_id = make_user(app, 'owner4@example.com', 'owner')[m
+[32m+[m[32m    viewer_id = make_user(app, 'viewer5@example.com', 'viewer')[m
+[32m+[m[32m    with app.app_context():[m
+[32m+[m[32m        doc=Document(name='Read only',category='General',owner_id=owner_id,storage_name='ro.bin',original_name='ro.txt',mime_type='text/plain',size_bytes=1)[m
+[32m+[m[32m        db.session.add(doc);db.session.flush();db.session.add(Permission(document_id=doc.id,user_id=viewer_id,level='read',granted_by_id=owner_id));db.session.commit();doc_id=doc.id[m
+[32m+[m[32m    login(client, 'viewer5@example.com')[m
+[32m+[m[32m    assert client.post(f'/documents/{doc_id}/edit', data={'name':'Changed','category':'General'}).status_code == 404[m
+[32m+[m
+[32m+[m[32mdef test_audit_chain_detects_tampering(app):[m
+[32m+[m[32m    with app.app_context():[m
+[32m+[m[32m        user=User(email='auditor@example.com',role='owner'); user.set_password('correct-horse-battery'); db.session.add(user); db.session.commit()[m
+[32m+[m[32m        from app import record_event[m
+[32m+[m[32m        record_event('test_event', actor=user, details={'ok': True}); db.session.commit()[m
+[32m+[m[32m        assert verify_audit_chain() is True[m
+[32m+[m[32m        event=AuditEvent.query.first(); event.action='changed_without_rehash'; db.session.commit()[m
+[32m+[m[32m        assert verify_audit_chain() is False[m
